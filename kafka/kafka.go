@@ -7,12 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/minhgiang16983/Minh-Kit-Hehe/lifecycle"
 	"github.com/minhgiang16983/Minh-Kit-Hehe/logger"
 	"github.com/minhgiang16983/Minh-Kit-Hehe/tracing"
 	"github.com/IBM/sarama"
 	"github.com/dnwe/otelsarama"
 	"go.opentelemetry.io/otel"
 )
+
+var _ lifecycle.Component = (*KafkaClient)(nil)
 
 type KafkaConfig struct {
 	// Comma-separated or list in YAML (Viper/mapstructure will handle both if you like)
@@ -253,7 +256,21 @@ func (k *KafkaClient) handleProducerResult(p sarama.AsyncProducer, name string) 
 	}()
 }
 
+func (k *KafkaClient) Name() string { return "kafka" }
+
+func (k *KafkaClient) Start(_ context.Context) error { return nil }
+
+func (k *KafkaClient) Stop(_ context.Context) error {
+	k.Close()
+	return nil
+}
+
 func (k *KafkaClient) Close() {
+	for name, p := range k.Producer {
+		if err := p.Close(); err != nil {
+			k.Logger.Info("Kafka sync producer close error", k.Logger.String("producer", name), k.Logger.String("error", err.Error()))
+		}
+	}
 	for name, p := range k.AsyncProducer {
 		if err := p.Close(); err != nil {
 			k.Logger.Info("Kafka producer close error", k.Logger.String("producer", name), k.Logger.String("error", err.Error()))

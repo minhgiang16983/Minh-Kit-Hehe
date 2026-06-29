@@ -80,8 +80,8 @@ func guardBeforeQuery(tx *gorm.DB) {
 		return
 	}
 
-	// First/Take/Last set LIMIT 1 and RaiseErrorOnNotFound before the query callback runs.
-	if statementExpectsSingleRow(stmt) {
+	// First/Take/Last set RaiseErrorOnNotFound before the query callback runs.
+	if stmt.RaiseErrorOnNotFound {
 		return
 	}
 
@@ -101,11 +101,4 @@ func destIsSlice(dest interface{}) bool {
 		v = v.Elem()
 	}
 	return v.Kind() == reflect.Slice || v.Kind() == reflect.Array
-}
-
-func statementExpectsSingleRow(stmt *gorm.Statement) bool {
-	if stmt == nil || stmt.Limit == nil {
-		return false
-	}
-	return *stmt.Limit == 1
 }

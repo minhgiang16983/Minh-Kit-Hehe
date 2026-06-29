@@ -2,6 +2,7 @@ package cron
 
 import (
 	"fmt"
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -26,6 +27,10 @@ func TestCron(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("Failed to add cron job: %v", err)
+	}
+
+	if err := cron.Start(context.Background()); err != nil {
+		t.Fatalf("Failed to start cron: %v", err)
 	}
 
 	time.Sleep(10 * time.Second)

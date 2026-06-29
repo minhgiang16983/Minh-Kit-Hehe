@@ -11,10 +11,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/minhgiang16983/Minh-Kit-Hehe/logger"
+	"github.com/minhgiang16983/Minh-Kit-Hehe/lifecycle"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
+
+var _ lifecycle.Component = (*Metrics)(nil)
 
 var (
 	// Http client metrics
@@ -55,6 +58,7 @@ type Metrics struct {
 	// Custom metrics
 	customMetrics map[string]prometheus.Collector
 	config        *MetricsConfig
+	server        *http.Server
 }
 
 // MetricsConfig holds configuration for metrics
@@ -283,4 +287,41 @@ func (m *Metrics) StartMetricsServerWithContext(ctx context.Context, config *Met
 
 func (m *Metrics) GetConfig() *MetricsConfig {
 	return m.config
+}
+
+func (m *Metrics) Name() string { return "metrics" }
+
+func (m *Metrics) Start(_ context.Context) error {
+	if m.server != nil || m.config == nil || m.config.Port == 0 {
+		return nil
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle(m.config.Path, promhttp.Handler())
+
+	addr := fmt.Sprintf(":%d", m.config.Port)
+	m.server = &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+	m.SetServiceUp(true)
+
+	go func() {
+		if err := m.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			zap.L().Error("metrics server error", zap.Error(err))
+		}
+	}()
+
+	return nil
+}
+
+func (m *Metrics) Stop(ctx context.Context) error {
+	m.SetServiceUp(false)
+	if m.server == nil {
+		return nil
+	}
+
+	err := m.server.Shutdown(ctx)
+	m.server = nil
+	return err
 }

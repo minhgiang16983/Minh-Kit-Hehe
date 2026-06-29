@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/minhgiang16983/Minh-Kit-Hehe/lifecycle"
 	"github.com/minhgiang16983/Minh-Kit-Hehe/logger"
 	"github.com/minhgiang16983/Minh-Kit-Hehe/tracing"
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,6 +18,8 @@ import (
 	redisprometheus "github.com/redis/go-redis/extra/redisprometheus/v9"
 	"github.com/redis/go-redis/v9"
 )
+
+var _ lifecycle.Component = (*RedisStore)(nil)
 
 type RedisConfig struct {
 	Host                  string `mapstructure:"host" yaml:"host"`
@@ -111,4 +114,15 @@ func New(config *RedisConfig) (*RedisStore, error) {
 	}
 
 	return &RedisStore{rdb}, nil
+}
+
+func (s *RedisStore) Name() string { return "redis" }
+
+func (s *RedisStore) Start(_ context.Context) error { return nil }
+
+func (s *RedisStore) Stop(_ context.Context) error {
+	if s.Client == nil {
+		return nil
+	}
+	return s.Client.Close()
 }
