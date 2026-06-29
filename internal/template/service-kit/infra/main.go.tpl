@@ -1,6 +1,7 @@
 package infra
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/minhgiang16983/service-kit/config"
@@ -13,6 +14,9 @@ import (
 
 // InfraInterface defines methods to access infrastructure
 type InfraInterface interface {
+	Name() string
+	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
 	GetMariaDb() *gorm.DB
 	GetRedisStore() *redis.RedisStore
 	GetKafkaClient() *kafka.KafkaClient
@@ -87,6 +91,20 @@ func (i *Infra) GetRedisStore() *redis.RedisStore {
 // GetKafkaClient returns KafkaClient
 func (i *Infra) GetKafkaClient() *kafka.KafkaClient {
 	return i.kafkaClient
+}
+
+// Name returns the lifecycle component name.
+func (i *Infra) Name() string { return "infra" }
+
+// Start verifies infrastructure is ready.
+func (i *Infra) Start(_ context.Context) error {
+	i.l.Info("infrastructure ready")
+	return nil
+}
+
+// Stop closes all infrastructure connections.
+func (i *Infra) Stop(ctx context.Context) error {
+	return i.Close()
 }
 
 // Close closes all connections
