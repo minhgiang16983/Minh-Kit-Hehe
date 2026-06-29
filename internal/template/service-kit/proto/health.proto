@@ -1,0 +1,11 @@
+syntax = "proto3";
+package pb;
+
+option go_package = "/api;pb";
+
+message HealthRequest {
+}
+
+message HealthResponse {
+  string status = 1;
+}

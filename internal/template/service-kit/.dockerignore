@@ -1,0 +1,19 @@
+# Ignore the local modules and dependencies
+vendor/
+
+# Ignore source control and IDE stuff
+.git
+.gitignore
+.idea
+.vscode
+
+# Ignore OS or editor-specific files
+.DS_Store
+*.swp
+
+# Ignore test files and coverage
+*.cov
+*.coverprofile
+
+# Binary file
+*.exe

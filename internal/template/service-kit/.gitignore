@@ -1,0 +1,21 @@
+# Vendor directory
+vendor/
+
+# Dependency directories
+dep/
+Godeps/
+
+
+# Output of go coverage tool
+*.coverprofile
+*.cov
+
+# Binary file
+*.exe
+
+# Editor file
+*.DS_Store
+.idea
+.vscode
+*.swp
+*.swo

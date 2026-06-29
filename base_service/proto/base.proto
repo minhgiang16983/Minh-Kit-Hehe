@@ -1,0 +1,22 @@
+syntax = "proto3";
+package hskbasepb;
+
+option go_package = "/base;hskbasepb";
+
+import "third_party/google/api/annotations.proto";
+
+service HskBase {
+  rpc Health(HealthRequest) returns (HealthResponse) {
+    option (google.api.http) = {
+      get: "/health",
+    };
+  }
+}
+
+message HealthRequest {
+
+}
+
+message HealthResponse {
+  string status = 1;
+}
