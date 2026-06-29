@@ -8,8 +8,14 @@ import (
 	"net/http"
 
 	"github.com/minhgiang16983/service-kit/config"
+	"github.com/minhgiang16983/Minh-Kit-Hehe/lifecycle"
 	"github.com/minhgiang16983/Minh-Kit-Hehe/logger"
 	"google.golang.org/grpc"
+)
+
+var (
+	_ lifecycle.Component = (*GrpcServerComponent)(nil)
+	_ lifecycle.Component = (*HttpServerComponent)(nil)
 )
 
 type GrpcServerComponent struct {

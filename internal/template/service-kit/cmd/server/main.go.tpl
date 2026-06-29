@@ -48,13 +48,33 @@ func main() {
 	pb.RegisterServiceKitServer(grpcServer, pbService)
 
 	lc := lifecycle.New(l)
-	lc.Register(
-		infrastructure,
-		NewGrpcServerComponent(cfg, l, grpcServer),
-		NewHttpServerComponent(ctx, cfg, l),
-	)
+	registerLifecycleComponents(lc, infrastructure, cfg, l, grpcServer, ctx)
 
 	if err := lc.Run(ctx); err != nil {
 		l.Fatal("application stopped with error", l.String("error", err.Error()))
 	}
+}
+
+func registerLifecycleComponents(
+	lc *lifecycle.Lifecycle,
+	infrastructure infra.InfraInterface,
+	cfg *config.Config,
+	l logger.LoggerInterface,
+	grpcServer *grpc.Server,
+	ctx context.Context,
+) {
+	// 1. Infrastructure: mariadb -> redis -> kafka
+	lc.Register(infrastructure.Components()...)
+
+	// 2. Kafka consumers/producers (register after kafka client, before servers)
+	// kafkaClient := infrastructure.GetKafkaClient()
+	// _ = kafkaClient.InitConsumer("my-consumer", cfg.Kafka.GroupID, nil)
+	// lc.Register(kafka.NewMessageConsumerComponent(kafkaClient, "my-consumer", []string{"topic"}, handler))
+	// lc.Register(kafka.NewAsyncProducerComponent(kafkaClient, "my-producer"))
+
+	// 3. Application servers
+	lc.Register(
+		NewGrpcServerComponent(cfg, l, grpcServer),
+		NewHttpServerComponent(ctx, cfg, l),
+	)
 }

@@ -15,7 +15,7 @@ import (
 
 // InfraInterface defines methods to access infrastructure
 type InfraInterface interface {
-	lifecycle.Component
+	Components() []lifecycle.Component
 	GetMariaDb() *gorm.DB
 	GetRedisStore() *redis.RedisStore
 	GetKafkaClient() *kafka.KafkaClient
@@ -72,6 +72,10 @@ func New(config *config.Config, l logger.LoggerInterface) (InfraInterface, error
 	}, nil
 }
 
+func (i *Infra) Components() []lifecycle.Component {
+	return []lifecycle.Component{i.mariaDb, i.redisStore, i.kafkaClient}
+}
+
 func (i *Infra) GetMariaDb() *gorm.DB {
 	return i.mariaDb.DB
 }
@@ -84,43 +88,11 @@ func (i *Infra) GetKafkaClient() *kafka.KafkaClient {
 	return i.kafkaClient
 }
 
-func (i *Infra) Name() string { return "infra" }
-
-func (i *Infra) Start(ctx context.Context) error {
-	for _, component := range i.components() {
-		i.l.Info("starting infra component", i.l.String("component", component.Name()))
-		if err := component.Start(ctx); err != nil {
-			return fmt.Errorf("start %s: %w", component.Name(), err)
-		}
-	}
-	return nil
-}
-
-func (i *Infra) Stop(ctx context.Context) error {
-	var errs []error
-	components := i.components()
-	for idx := len(components) - 1; idx >= 0; idx-- {
-		component := components[idx]
-		i.l.Info("stopping infra component", i.l.String("component", component.Name()))
-		if err := component.Stop(ctx); err != nil {
-			i.l.Error("failed to stop infra component", i.l.String("component", component.Name()), i.l.ErrorField(err))
-			errs = append(errs, err)
-		}
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("failed to close resources: %v", errs)
-	}
-	return nil
-}
-
 func (i *Infra) Close() error {
-	return i.Stop(context.Background())
+	group := lifecycle.NewGroup("infra", i.Components()...)
+	return group.Stop(context.Background())
 }
 
 func (i *Infra) GetConfig() *config.Config {
 	return i.config
-}
-
-func (i *Infra) components() []lifecycle.Component {
-	return []lifecycle.Component{i.mariaDb, i.redisStore, i.kafkaClient}
 }

@@ -65,8 +65,8 @@ type KafkaInterface interface {
 	GetConsumer(name string) (sarama.ConsumerGroup, bool)
 	SendMessage(producerName, topic string, key, value []byte) (int32, int64, error)
 	SendMessageAsync(ctx context.Context, producerName string, msg *sarama.ProducerMessage) error
-	ConsumeLoop(consumerName string, topics []string, handler sarama.ConsumerGroupHandler) error
-	ConsumeMessage(consumerName string, topics []string, handler ConsumeMessageHandler) error
+	ConsumeLoop(ctx context.Context, consumerName string, topics []string, handler sarama.ConsumerGroupHandler) error
+	ConsumeMessage(ctx context.Context, consumerName string, topics []string, handler ConsumeMessageHandler) error
 	GetConfig() *sarama.Config
 	HandleProducerResult(p sarama.AsyncProducer)
 	Close()
@@ -219,7 +219,14 @@ func (k *KafkaClient) SendMessage(producerName, topic string, key, value []byte)
 	return p.SendMessage(msg)
 }
 
-func (k *KafkaClient) ConsumeLoop(consumerName string, topics []string, handler sarama.ConsumerGroupHandler) error {
+func (k *KafkaClient) ConsumeLoop(ctx context.Context, consumerName string, topics []string, handler sarama.ConsumerGroupHandler) error {
+	go func() {
+		_ = k.consumeLoop(ctx, consumerName, topics, handler)
+	}()
+	return nil
+}
+
+func (k *KafkaClient) consumeLoop(ctx context.Context, consumerName string, topics []string, handler sarama.ConsumerGroupHandler) error {
 	if tracing.GetGlobalTracingConfig().IsEnableKafkaTracing() {
 		handler = otelsarama.WrapConsumerGroupHandler(handler)
 	}
@@ -227,16 +234,19 @@ func (k *KafkaClient) ConsumeLoop(consumerName string, topics []string, handler 
 	if !ok {
 		return fmt.Errorf("consumer %s not found", consumerName)
 	}
-	ctx := context.Background()
-	go func() {
-		for {
-			if err := c.Consume(ctx, topics, handler); err != nil {
-				k.Logger.Warn("Kafka consume error", k.Logger.String("error", err.Error()))
-				time.Sleep(2 * time.Second)
-			}
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-	}()
-	return nil
+		if err := c.Consume(ctx, topics, handler); err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			k.Logger.Warn("Kafka consume error", k.Logger.String("error", err.Error()))
+			time.Sleep(2 * time.Second)
+		}
+	}
 }
 
 func (k *KafkaClient) HandleProducerResult(p sarama.AsyncProducer) {
@@ -298,15 +308,12 @@ func (k *KafkaClient) SendMessageAsync(ctx context.Context, producerName string,
 }
 
 // ConsumeMessage starts consuming messages from the specified topics using the provided handler
-func (k *KafkaClient) ConsumeMessage(consumerName string, topics []string, handler ConsumeMessageHandler) error {
-	// Create a default ConsumerGroupHandler that wraps our custom handler
+func (k *KafkaClient) ConsumeMessage(ctx context.Context, consumerName string, topics []string, handler ConsumeMessageHandler) error {
 	consumerGroupHandler := &defaultConsumerGroupHandler{
 		handler: handler,
 		logger:  k.Logger,
 	}
-
-	// Use the existing ConsumeLoop method with our wrapped handler
-	return k.ConsumeLoop(consumerName, topics, consumerGroupHandler)
+	return k.ConsumeLoop(ctx, consumerName, topics, consumerGroupHandler)
 }
 
 // defaultConsumerGroupHandler implements sarama.ConsumerGroupHandler
